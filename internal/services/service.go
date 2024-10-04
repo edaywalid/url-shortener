@@ -14,6 +14,8 @@ import (
 	"github.com/edaywalid/url-shortner/utils/zk"
 	"github.com/rs/zerolog/log"
 
+	rds "github.com/go-redis/redis/v8"
+	zkp "github.com/go-zookeeper/zk"
 )
 
 type Service struct {
@@ -226,4 +228,41 @@ func (s *Service) LoadRange() error {
 	log.Info().Msg("Range loaded")
 	log.Info().Msg(fmt.Sprintf("%+v", s.Range))
 	return nil
+}
+
+func (s *Service) GetShortURL(ctx context.Context, request *models.Request) (string, error) {
+	shortURL, err := s.redis.Get(ctx, "url:"+request.OriginalURL)
+	if err != nil && err != rds.Nil {
+		return "", err
+	}
+	if shortURL != "" {
+		return shortURL, nil
+	}
+	s.rangeMutex.Lock()
+	defer s.rangeMutex.Unlock()
+	if s.Range.Current > s.Range.End {
+		return "", fmt.Errorf("range is exhausted")
+	}
+	code := utils.ToBase62(s.Range.Current)
+	s.Range.Current++
+	if err := s.SaveShortURL(ctx, code, request.OriginalURL); err != nil {
+		return "", err
+	}
+	return code, nil
+}
+
+func (s *Service) SaveShortURL(ctx context.Context, code, url string) error {
+	err := s.redis.Set(ctx, "code:"+code, url)
+	if err != nil {
+		return err
+	}
+	err = s.redis.Set(ctx, "url:"+url, code)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (s *Service) GetURL(ctx context.Context, code string) (string, error) {
+	return s.redis.Get(ctx, "code:"+code)
 }
