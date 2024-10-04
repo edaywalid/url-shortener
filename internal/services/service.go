@@ -39,3 +39,12 @@ func NewService(
 		Range:      rangeData,
 	}
 }
+
+type RangeNotFound struct {
+	path string
+}
+
+func (r *RangeNotFound) Error() string {
+	return fmt.Sprintf("range not found: %s", r.path)
+}
+
