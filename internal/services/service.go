@@ -107,3 +107,94 @@ path:
 	}
 	return nil
 }
+
+func (s *Service) InitRange() error {
+
+	log.Info().Msg("Acquiring lock for range initialization")
+	if err := s.zkConn.Lock(); err != nil {
+		log.Error().Err(err).Msg("Failed to acquire lock")
+		return err
+	}
+	defer func() {
+		log.Info().Msg("Releasing lock for range initialization")
+		if err := s.zkConn.Unlock(); err != nil {
+			log.Error().Err(err).Msg("Failed to release lock")
+		}
+	}()
+
+	path := s.nodePath + "/range"
+
+	log.Info().Msg("Initializing the range")
+	log.Info().Msg(path)
+
+	if _, err := s.zkConn.Get(path); err == nil {
+		log.Info().Msg("Range already exists")
+		return nil
+	}
+
+	rangeExists, err := s.zkConn.Exists("/url_shortener/range/last")
+	if err != nil {
+		log.Error().Err(err).Msg("Failed to check if the last range exists")
+		return err
+	}
+
+	if !rangeExists {
+		_, err := s.zkConn.Create("/url_shortener/range", []byte("range"))
+		if err != nil {
+			log.Error().Err(err).Msg("Failed to create the range node")
+			if err == zkp.ErrNodeExists {
+				log.Info().Msg("Range node already exists")
+				goto last
+			}
+			return err
+		}
+
+		_, err = s.zkConn.Create("/url_shortener/range/last", []byte("0"))
+		if err != nil {
+			log.Error().Err(err).Msg("Failed to create the last range node")
+			return err
+		}
+	}
+
+last:
+	lastRange, err := s.zkConn.Get("/url_shortener/range/last")
+	if err != nil {
+		log.Error().Err(err).Msg("Failed to get the last range")
+		return err
+	}
+
+	val, err := strconv.Atoi(string(lastRange))
+	if err != nil {
+		log.Error().Err(err).Msg("Failed to convert the last range")
+		return err
+	}
+	lastRangeData := uint64(val)
+
+	s.Range = &models.Range{
+		Start:   lastRangeData + 1,
+		End:     lastRangeData + 1000000,
+		Current: lastRangeData + 1,
+	}
+
+	data, err := json.Marshal(s.Range)
+	if err != nil {
+		log.Error().Err(err).Msg("Failed to marshal the range data")
+		return err
+	}
+
+	_, err = s.zkConn.Create(path, data)
+	if err != nil {
+		log.Error().Err(err).Msg("Failed to create the range node")
+		return err
+	}
+
+	data = []byte(strconv.Itoa(int(s.Range.End)))
+
+	err = s.zkConn.Set("/url_shortener/range/last", data)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
