@@ -56,7 +56,7 @@ services:
       - app1
       - app2
     networks:
-      - mynet # Ensure NGINX is connected to the same network
+      - mynet 
       - default
 
 networks:
