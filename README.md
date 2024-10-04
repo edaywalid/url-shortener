@@ -82,7 +82,6 @@ there are two endpoints in the system
    curl -X GET http://localhost/332c
    ```
 
-  - **_NOTE:_**
-    - the single instance will run on port 8080 so use `localhost:8080`
-    - the distributed system will run on port 80 so use `localhost`
-    
+- **_NOTE:_**
+  - the single instance will run on port 8080 so use `localhost:8080`
+  - the distributed system will run on port 80 so use `localhost`
