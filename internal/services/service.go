@@ -198,3 +198,19 @@ last:
 	return nil
 }
 
+func (s *Service) LoadRange() error {
+	path := s.nodePath + "/range"
+	data, err := s.zkConn.Get(path)
+	var rangeData models.Range
+	if err != nil {
+		log.Error().Err(err).Msg("Failed to get the range")
+		return &RangeNotFound{path: path}
+	}
+	if err := json.Unmarshal(data, &rangeData); err != nil {
+		return err
+	}
+	s.Range = &rangeData
+	log.Info().Msg("Range loaded")
+	log.Info().Msg(fmt.Sprintf("%+v", s.Range))
+	return nil
+}
