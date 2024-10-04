@@ -1,0 +1,64 @@
+services:
+  redis:
+    image: redis
+    restart: always
+    networks:
+      - mynet
+    ports:
+      - 6379:6379
+
+  zoo1:
+    image: zookeeper
+    restart: always
+    hostname: zoo1
+    networks:
+      - mynet
+    ports:
+      - 2181:2181
+
+  app1:
+    build:
+      context: .
+    image: myapp-image
+    environment:
+      - SERVER_ID=server1
+      - ZK_ADDR=zoo1:2181
+      - REDIS_ADDR=redis:6379
+      - PORT=8080
+      - BASE_URL=http://localhost/
+    ports:
+      - "9080:8080"
+    networks:
+      - mynet
+
+  app2:
+    build:
+      context: .
+    image: myapp-image
+    environment:
+      - SERVER_ID=server2
+      - ZK_ADDR=zoo1:2181
+      - REDIS_ADDR=redis:6379
+      - PORT=8080
+      - BASE_URL=http://localhost/
+    ports:
+      - "9081:8080"
+    networks:
+      - mynet
+
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf
+    depends_on:
+      - app1
+      - app2
+    networks:
+      - mynet # Ensure NGINX is connected to the same network
+      - default
+
+networks:
+  mynet:
+  default:
