@@ -48,6 +48,19 @@ func (r *RangeNotFound) Error() string {
 	return fmt.Sprintf("range not found: %s", r.path)
 }
 
+func (s *Service) Close() error {
+	// update the range in the zookeeper
+	data, err := json.Marshal(s.Range)
+	if err != nil {
+		return err
+	}
+	log.Info().Msgf("Saving the range %+v", s.Range)
+	err = s.zkConn.Set(s.nodePath+"/range", data)
+	if err != nil {
+		return err
+	}
+	return nil
+}
 
 func (s *Service) RegisterService() error {
 	// check if "/url_shortener" Exists
